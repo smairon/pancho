@@ -1,1 +1,7 @@
-from .bootstraping.registering import DependencyRegistry
+from .implementation import (
+    CQRSFactory,
+    CQProcessor,
+    ActorRegistry,
+    register_module
+)
+from . import definition
