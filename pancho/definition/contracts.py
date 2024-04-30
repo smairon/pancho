@@ -8,28 +8,23 @@ import datetime
 import zodchy
 
 IdentifierType = uuid.UUID
+NoValueType = zodchy.types.Empty
 PacketIdType = IdentifierType
 FrameIdType = IdentifierType
 ActorIdType = int
 
-NoValueType = zodchy.codex.NoValueType
-
-Message = zodchy.codex.Message
-
-Query = zodchy.codex.Query
-Context = zodchy.codex.Context
-Command = zodchy.codex.Command
-
-Event = zodchy.codex.Event
-
-Error = zodchy.codex.Error
-IOE = zodchy.codex.IOEvent
-BDE = zodchy.codex.BDEvent
-ResponseEvent = zodchy.codex.ResponseEvent
-ReadEvent = zodchy.codex.ReadEvent
-WriteEvent = zodchy.codex.WriteEvent
-
-Frame = zodchy.codex.Frame
+Message = zodchy.codex.cqea.Message
+Query = zodchy.codex.cqea.Query
+Context = zodchy.codex.cqea.Context
+Command = zodchy.codex.cqea.Command
+Event = zodchy.codex.cqea.Event
+Error = zodchy.codex.cqea.Error
+IOE = zodchy.codex.cqea.IOEvent
+BDE = zodchy.codex.cqea.BDEvent
+ResponseEvent = zodchy.codex.cqea.ResponseEvent
+ReadEvent = zodchy.codex.cqea.ReadEvent
+WriteEvent = zodchy.codex.cqea.WriteEvent
+Frame = zodchy.codex.cqea.Frame
 
 P = typing.TypeVar('P', bound=Message)
 
@@ -41,11 +36,11 @@ class Packet(typing.Generic[P]):
     payload: P
 
 
-DIContainer = zodchy.codex.DIContainerContract
-DIResolver = zodchy.codex.DIResolverContract
-IdentifiersFactory = zodchy.codex.IdentifiersFactory
+DIContainer = zodchy.codex.di.DIContainerContract
+DIResolver = zodchy.codex.di.DIResolverContract
+IdentifiersFactory = zodchy.codex.identity.IdentifiersFactory
 
-ActorContract = collections.abc.Callable
+ActorContract = zodchy.codex.cqea.Actor
 
 
 class ActorExecutionKind(enum.Enum):

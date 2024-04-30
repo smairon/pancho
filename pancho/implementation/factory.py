@@ -2,8 +2,8 @@ import collections.abc
 import typing
 from contextlib import asynccontextmanager
 
-from ..definition import contracts
 from .processing import CQProcessor
+from ..definition import contracts
 
 
 class CQRSFactory:
