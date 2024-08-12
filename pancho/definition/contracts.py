@@ -96,7 +96,7 @@ class ActorRegistryEntry:
     runtime: ActorRuntime
 
 
-class ActorRegistry:
+class ActorRegistry(typing.Protocol):
     def add(self, actor: ActorContract): ...
 
     def get(self, contract: type) -> collections.abc.Generator[ActorRegistryEntry, None, None]: ...

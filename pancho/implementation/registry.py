@@ -91,7 +91,7 @@ class ActorRegistry:
     def _derive_semantic_kind(
         actor_name: str,
         return_annotation: typing.Any
-    ) -> contracts.ActorSemanticKind | None:
+    ) -> contracts.ActorSemanticKind:
         if return_annotation is inspect.Parameter.empty:
             return contracts.ActorSemanticKind.WRITE
         else:
@@ -142,6 +142,8 @@ class ActorRegistry:
                 definitive = actor_parameter
             elif isinstance(actor_parameter, contracts.ActorDependencyParameter):
                 dependencies.append(actor_parameter)
+        if definitive is None:
+            raise exceptions.CannotDefineActorParameter(signature)
         return contracts.ActorParameters(
             definitive=definitive,
             dependencies=dependencies or None
@@ -188,7 +190,7 @@ def _evoke_types_chain(annotation):
 def _search_contract(
     haystack: collections.abc.Sequence | type,
     *needles: type
-) -> type | None:
+) -> typing.Any:
     haystack = haystack if isinstance(haystack, collections.abc.Sequence) else (haystack,)
     if collections.abc.Callable in haystack:
         return

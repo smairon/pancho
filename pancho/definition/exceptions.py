@@ -21,9 +21,17 @@ class CannotDeriveActorPurpose(PanchoException):
         self._actor = actor
         super().__init__(self.message())
 
-    @abc.abstractmethod
     def message(self):
         return f'Cannot derive actor type: {self._actor}'
+
+
+class CannotDefineActorParameter(PanchoException):
+    def __init__(self, actor: contracts.ActorContract):
+        self._actor = actor
+        super().__init__(self.message())
+
+    def message(self):
+        return f'Cannot define actor parameter: {self._actor}'
 
 
 class CannotResolveActorParameter(PanchoException):

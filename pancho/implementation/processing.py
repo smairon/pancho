@@ -35,10 +35,12 @@ class CQProcessor:
         self,
         message: contracts.Message
     ) -> typing.Generator[contracts.Message, None, None]:
-        postponed_actors = set()
+        postponed_actors: set[contracts.ActorIdType] = set()
         stream = [m async for m in self._loop(message, postponed_actors)]
         for actor_id in postponed_actors:
-            await self._execute_actor(self._actor_registry.get_by_id(actor_id), stream)
+            actor_entry = self._actor_registry.get_by_id(actor_id)
+            if actor_entry:
+                await self._execute_actor(actor_entry, stream)
         return (p.payload for p in stream)
 
     async def _loop(self, init_message: contracts.Message, postponed_actors: set) -> collections.abc.AsyncGenerator:
@@ -152,3 +154,4 @@ class CQProcessor:
                     actor_entry=actor_entry,
                     data=message
                 )
+        return None
