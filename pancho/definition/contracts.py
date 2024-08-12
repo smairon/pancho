@@ -5,26 +5,31 @@ import uuid
 import collections.abc
 import datetime
 
-import zodchy
+from zodchy import codex
+from zodchy.types import Empty as EmptyType
 
-IdentifierType = uuid.UUID
-NoValueType = zodchy.types.Empty
-PacketIdType = IdentifierType
-FrameIdType = IdentifierType
-ActorIdType = int
+IdentifierType: typing.TypeAlias = uuid.UUID
+NoValueType: typing.TypeAlias = EmptyType
+PacketIdType: typing.TypeAlias = IdentifierType
+FrameIdType: typing.TypeAlias = IdentifierType
+ActorIdType: typing.TypeAlias = int
 
-Message = zodchy.codex.cqea.Message
-Query = zodchy.codex.cqea.Query
-Context = zodchy.codex.cqea.Context
-Command = zodchy.codex.cqea.Command
-Event = zodchy.codex.cqea.Event
-Error = zodchy.codex.cqea.Error
-IOE = zodchy.codex.cqea.IOEvent
-BDE = zodchy.codex.cqea.BDEvent
-ResponseEvent = zodchy.codex.cqea.ResponseEvent
-ReadEvent = zodchy.codex.cqea.ReadEvent
-WriteEvent = zodchy.codex.cqea.WriteEvent
-Frame = zodchy.codex.cqea.Frame
+Message: typing.TypeAlias = codex.cqea.Message
+Query: typing.TypeAlias = codex.cqea.Query
+Context: typing.TypeAlias = codex.cqea.Context
+Command: typing.TypeAlias = codex.cqea.Command
+Event: typing.TypeAlias = codex.cqea.Event
+Error: typing.TypeAlias = codex.cqea.Error
+IOE: typing.TypeAlias = codex.cqea.IOEvent
+BDE: typing.TypeAlias = codex.cqea.BDEvent
+ResponseEvent: typing.TypeAlias = codex.cqea.ResponseEvent
+ReadEvent: typing.TypeAlias = codex.cqea.ReadEvent
+WriteEvent: typing.TypeAlias = codex.cqea.WriteEvent
+Frame: typing.TypeAlias = codex.cqea.Frame
+DIContainer: typing.TypeAlias = codex.di.DIContainerContract
+DIResolver: typing.TypeAlias = codex.di.DIResolverContract
+IdentifiersFactory: typing.TypeAlias = codex.identity.IdentifiersFactory
+ActorContract: typing.TypeAlias = codex.cqea.Actor
 
 P = typing.TypeVar('P', bound=Message)
 
@@ -34,13 +39,6 @@ class Packet(typing.Generic[P]):
     trace_id: uuid.UUID
     created_at: datetime.datetime
     payload: P
-
-
-DIContainer = zodchy.codex.di.DIContainerContract
-DIResolver = zodchy.codex.di.DIResolverContract
-IdentifiersFactory = zodchy.codex.identity.IdentifiersFactory
-
-ActorContract = zodchy.codex.cqea.Actor
 
 
 class ActorExecutionKind(enum.Enum):

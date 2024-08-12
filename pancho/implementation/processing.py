@@ -127,7 +127,7 @@ class CQProcessor:
         return Packet(
             id=uuid.uuid4(),
             trace_id=trace_id,
-            created_at=datetime.datetime.utcnow(),
+            created_at=datetime.datetime.now(datetime.UTC),
             payload=message
         )
 
