@@ -5,3 +5,4 @@ from .implementation import (
     register_module
 )
 from . import definition
+from . import aux

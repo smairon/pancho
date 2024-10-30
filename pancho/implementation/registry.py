@@ -1,4 +1,5 @@
 import collections.abc
+import itertools
 import typing
 import inspect
 import types
@@ -28,7 +29,8 @@ class ActorRegistry:
         self,
         actor: contracts.ActorContract
     ):
-        self._register_entry(self._actor_entry(actor))
+        if actor_entry := self._actor_entry(actor):
+            self._register_entry(actor_entry)
 
     def get(
         self,
@@ -61,15 +63,17 @@ class ActorRegistry:
         self._actors[entry.id] = entry
         if entry.semantic_kind == contracts.ActorSemanticKind.CONTEXT:
             self._contract_actor_map[entry.return_annotation].append(entry.id)
-        elif entry.semantic_kind == contracts.ActorSemanticKind.AUDIT:
-            self._contract_actor_map[entry.parameters.definitive.contract].insert(0, entry.id)
         else:
-            self._contract_actor_map[entry.parameters.definitive.contract].append(entry.id)
+            for parameter in itertools.chain(entry.parameters.domain, entry.parameters.context or ()):
+                self._contract_actor_map[parameter.contract].append(entry.id)
 
     def _actor_entry(
         self,
         actor: contracts.ActorContract
-    ) -> contracts.ActorRegistryEntry:
+    ) -> contracts.ActorRegistryEntry | None:
+        semantic_kind = self._derive_semantic_kind(actor=actor)
+        if semantic_kind is None:
+            return
         signature = inspect.signature(actor)
         parameters = self._derive_parameters(signature)
         return_annotation = signature.return_annotation
@@ -77,10 +81,7 @@ class ActorRegistry:
             id=id(actor),
             parameters=parameters,
             return_annotation=return_annotation,
-            semantic_kind=self._derive_semantic_kind(
-                actor_name=actor.__name__,
-                return_annotation=return_annotation
-            ),
+            semantic_kind=semantic_kind,
             runtime=contracts.ActorRuntime(
                 executable=self._derive_executable(actor),
                 kind=self._derive_execution_kind(actor)
@@ -89,27 +90,26 @@ class ActorRegistry:
 
     @staticmethod
     def _derive_semantic_kind(
-        actor_name: str,
-        return_annotation: typing.Any
-    ) -> contracts.ActorSemanticKind:
-        if return_annotation is inspect.Parameter.empty:
-            return contracts.ActorSemanticKind.WRITE
-        else:
-            _types_chain = _evoke_types_chain(return_annotation)
-            if _search_contract(_types_chain, contracts.Context):
-                return contracts.ActorSemanticKind.CONTEXT
-            elif _search_contract(_types_chain, contracts.BDE):
-                return contracts.ActorSemanticKind.DOMAIN
-            elif _search_contract(_types_chain, contracts.Command, contracts.Query):
-                return contracts.ActorSemanticKind.AUDIT
-            elif _search_contract(_types_chain, contracts.ReadEvent):
-                return contracts.ActorSemanticKind.READ
-            elif _search_contract(_types_chain, contracts.WriteEvent):
-                return contracts.ActorSemanticKind.WRITE
-            elif _search_contract(_types_chain, contracts.ResponseEvent):
-                return contracts.ActorSemanticKind.RESPONSE
+        actor: contracts.ActorContract,
+    ) -> contracts.ActorSemanticKind | None:
+        _map = {
+            'io': contracts.ActorSemanticKind.IO,
+            'reader': contracts.ActorSemanticKind.IO,
+            'writer': contracts.ActorSemanticKind.IO,
+            'auditor': contracts.ActorSemanticKind.AUDIT,
+            'usecase': contracts.ActorSemanticKind.USECASE,
+            'context': contracts.ActorSemanticKind.CONTEXT,
+            'response': contracts.ActorSemanticKind.RESPONSE,
+            'skip': None
+        }
+        if '__semantic__' not in actor.__dict__:
+            for item in _map.keys():
+                if actor.__name__.endswith(f'_{item}'):
+                    actor.__dict__['__semantic__'] = item
+                    break
             else:
-                raise exceptions.ActorSemanticDefinitionFailed(actor_name)
+                return
+        return _map[actor.__dict__['__semantic__']]
 
     @staticmethod
     def _derive_execution_kind(
@@ -134,32 +134,37 @@ class ActorRegistry:
         self,
         signature: inspect.Signature
     ) -> contracts.ActorParameters:
-        definitive = None
+        domain = []
         dependencies = []
+        context = []
         for parameter in signature.parameters.values():
             actor_parameter = self._derive_parameter(parameter)
-            if isinstance(actor_parameter, contracts.ActorDefinitiveParameter):
-                definitive = actor_parameter
+            if isinstance(actor_parameter, contracts.ActorDomainParameter):
+                domain.append(actor_parameter)
+            if isinstance(actor_parameter, contracts.ActorContextParameter):
+                context.append(actor_parameter)
             elif isinstance(actor_parameter, contracts.ActorDependencyParameter):
                 dependencies.append(actor_parameter)
-        if definitive is None:
+        if not domain:
             raise exceptions.CannotDefineActorParameter(signature)
         return contracts.ActorParameters(
-            definitive=definitive,
+            domain=domain,
+            context=context or None,
             dependencies=dependencies or None
         )
 
     @staticmethod
     def _derive_parameter(parameter: inspect.Parameter) -> contracts.ActorParameter:
         _types_chain = _evoke_types_chain(parameter.annotation)
-        if contract := _search_contract(_types_chain, contracts.Message):
-            return contracts.ActorDefinitiveParameter(
+        if contract := _search_contract(_types_chain, contracts.Task, contracts.Event):
+            return contracts.ActorDomainParameter(
                 name=parameter.name,
-                contract=contract,
-                context=_search_contract(_types_chain, contracts.Context),
-                is_batch=bool(_search_contract(_types_chain, collections.abc.Iterable, list, tuple)),
-                is_wrapped=bool(_search_contract(_types_chain, contracts.Frame)),
-                is_packed=bool(_search_contract(_types_chain, contracts.Packet))
+                contract=contract
+            )
+        elif contract := _search_contract(_types_chain, contracts.Context):
+            return contracts.ActorContextParameter(
+                name=parameter.name,
+                contract=contract
             )
         else:
             return contracts.ActorDependencyParameter(
