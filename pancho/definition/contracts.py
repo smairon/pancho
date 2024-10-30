@@ -15,6 +15,7 @@ FrameIdType: typing.TypeAlias = IdentifierType
 ActorIdType: typing.TypeAlias = int
 
 Message: typing.TypeAlias = codex.cqea.Message
+Task: typing.TypeAlias = codex.cqea.Task
 Query: typing.TypeAlias = codex.cqea.Query
 Context: typing.TypeAlias = codex.cqea.Context
 Command: typing.TypeAlias = codex.cqea.Command
@@ -30,15 +31,7 @@ DIContainer: typing.TypeAlias = codex.di.DIContainerContract
 DIResolver: typing.TypeAlias = codex.di.DIResolverContract
 IdentifiersFactory: typing.TypeAlias = codex.identity.IdentifiersFactory
 ActorContract: typing.TypeAlias = codex.cqea.Actor
-
-P = typing.TypeVar('P', bound=Message)
-
-
-class Packet(typing.Generic[P]):
-    id: uuid.UUID
-    trace_id: uuid.UUID
-    created_at: datetime.datetime
-    payload: P
+ExecutionContext: typing.TypeAlias = collections.abc.Mapping[str, typing.Any]
 
 
 class ActorExecutionKind(enum.Enum):
@@ -47,11 +40,10 @@ class ActorExecutionKind(enum.Enum):
 
 
 class ActorSemanticKind(enum.Enum):
-    DOMAIN = enum.auto()
-    WRITE = enum.auto()
-    CONTEXT = enum.auto()
-    READ = enum.auto()
     AUDIT = enum.auto()
+    USECASE = enum.auto()
+    IO = enum.auto()
+    CONTEXT = enum.auto()
     RESPONSE = enum.auto()
 
 
@@ -62,12 +54,13 @@ class ActorParameter:
 
 
 @dataclasses.dataclass
-class ActorDefinitiveParameter(ActorParameter):
+class ActorDomainParameter(ActorParameter):
     contract: type[Message] | type[Query]
-    context: type[Context] | None = None
-    is_batch: bool = False
-    is_wrapped: bool = False
-    is_packed: bool = False
+
+
+@dataclasses.dataclass
+class ActorContextParameter(ActorParameter):
+    contract: type[Context]
 
 
 @dataclasses.dataclass
@@ -77,7 +70,8 @@ class ActorDependencyParameter(ActorParameter):
 
 @dataclasses.dataclass
 class ActorParameters:
-    definitive: ActorDefinitiveParameter
+    domain: collections.abc.Sequence[ActorDomainParameter]
+    context: collections.abc.Sequence[ActorContextParameter] | None = None
     dependencies: collections.abc.Sequence[ActorDependencyParameter] | None = None
 
 
