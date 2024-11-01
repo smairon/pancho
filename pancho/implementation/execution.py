@@ -3,7 +3,7 @@ from ..definition import contracts
 from .processing import CQProcessor
 
 
-class Executor:
+class TaskExecutor:
     def __init__(
         self,
         di_container: zorge.Container,
@@ -14,13 +14,13 @@ class Executor:
 
     async def run(
         self,
-        message: contracts.Task,
+        task: contracts.Task,
         execution_context: contracts.ExecutionContext | None = None
     ) -> list[contracts.Message]:
         resolver_context = (execution_context,) if execution_context else ()
         stream = []
         async with self._di_container.get_resolver(*resolver_context) as resolver:
-            processor = CQProcessor(self._actor_registry, resolver)(message)
+            processor = CQProcessor(self._actor_registry, resolver)(task)
             async for message in processor:
                 stream.append(message)
         return stream

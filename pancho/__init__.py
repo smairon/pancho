@@ -1,5 +1,5 @@
 from .implementation import (
-    CQRSFactory,
+    TaskExecutor,
     CQProcessor,
     ActorRegistry,
     register_module

@@ -3,7 +3,6 @@ import enum
 import typing
 import uuid
 import collections.abc
-import datetime
 
 from zodchy import codex
 from zodchy.types import Empty as EmptyType

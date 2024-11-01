@@ -5,7 +5,7 @@ import dataclasses
 import pytest
 from zorge.implementation.container import Container as DIContainer
 
-from pancho.implementation import Executor
+from pancho.implementation import TaskExecutor
 from pancho.implementation.registry import ActorRegistry
 
 from ..definitions import messages
@@ -39,7 +39,7 @@ def actor_registry():
 
 @pytest.mark.asyncio
 async def test_executor(actor_registry, di_container):
-    executor = Executor(di_container, actor_registry)
+    executor = TaskExecutor(di_container, actor_registry)
     stream = await executor.run(
         messages.CreateEmployee(
             first_name="Alex",
