@@ -4,5 +4,11 @@ from .implementation import (
     ActorRegistry,
     register_module
 )
-from . import definition
-from . import aux
+from .definition.contracts import (
+    Error,
+    Command,
+    Query,
+    Event,
+    Context
+)
+from .aux import wrappers

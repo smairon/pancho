@@ -1,8 +1,9 @@
 import collections.abc
 
 import zorge
-from ..definition import contracts
-from .processing import CQProcessor
+import zodchy
+
+from . import registry, processing
 
 
 class ExpectedErrorOccurred(Exception):
@@ -13,8 +14,8 @@ class TaskExecutor:
     def __init__(
         self,
         di_container: zorge.Container,
-        actor_registry: contracts.ActorRegistry,
-        error_wrapper: collections.abc.Callable[[Exception], contracts.Error] | None = None
+        actor_registry: registry.ActorRegistry,
+        error_wrapper: collections.abc.Callable[[Exception], zodchy.codex.cqea.Error] | None = None
     ):
         self._di_container = di_container
         self._actor_registry = actor_registry
@@ -22,17 +23,17 @@ class TaskExecutor:
 
     async def run(
         self,
-        task: contracts.Task,
-        execution_context: contracts.ExecutionContext | None = None
-    ) -> list[contracts.Message]:
+        task: zodchy.codex.cqea.Task,
+        execution_context: registry.ExecutionContext | None = None
+    ) -> list[zodchy.codex.cqea.Message]:
         resolver_context = (execution_context,) if execution_context else ()
         stream = []
         try:
             async with self._di_container.get_resolver(*resolver_context) as resolver:
-                processor = CQProcessor(self._actor_registry, resolver)(task)
+                processor = processing.CQProcessor(self._actor_registry, resolver)(task)
                 async for message in processor:
                     stream.append(message)
-                    if isinstance(message, contracts.Error):
+                    if isinstance(message, zodchy.codex.cqea.Error):
                         raise ExpectedErrorOccurred  # raise error just for informing context manager
         except ExpectedErrorOccurred:
             pass  # supress this artificial error

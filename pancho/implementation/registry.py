@@ -2,22 +2,72 @@ import collections.abc
 import itertools
 import typing
 import inspect
-import types
+import dataclasses
+import enum
+from types import ModuleType
 
-from ..definition import contracts, exceptions
+import zodchy
+
+from ..definition import exceptions
+
+ActorIdType: typing.TypeAlias = int
+ExecutionContext: typing.TypeAlias = collections.abc.Mapping[str, typing.Any]
 
 
-def register_module(
-    registry: contracts.ActorRegistry,
-    module: types.ModuleType
-) -> contracts.ActorRegistry:
-    for e in inspect.getmembers(module):
-        entity = e[1]
-        if inspect.ismodule(entity) and module.__name__ in entity.__name__:
-            register_module(registry, entity)
-        elif inspect.isfunction(entity) and not entity.__name__.startswith('_'):
-            registry.add(entity)
-    return registry
+class ActorExecutionKind(enum.Enum):
+    SYNC = enum.auto()
+    ASYNC = enum.auto()
+
+
+class ActorSemanticKind(enum.Enum):
+    AUDIT = enum.auto()
+    USECASE = enum.auto()
+    IO = enum.auto()
+    CONTEXT = enum.auto()
+    RESPONSE = enum.auto()
+
+
+@dataclasses.dataclass
+class ActorParameter:
+    name: str
+    contract: typing.Any
+
+
+@dataclasses.dataclass
+class ActorDomainParameter(ActorParameter):
+    contract: type[zodchy.codex.cqea.Message]
+
+
+@dataclasses.dataclass
+class ActorContextParameter(ActorParameter):
+    contract: type[zodchy.codex.cqea.Context]
+
+
+@dataclasses.dataclass
+class ActorDependencyParameter(ActorParameter):
+    default: typing.Any
+
+
+@dataclasses.dataclass
+class ActorParameters:
+    domain: collections.abc.Sequence[ActorDomainParameter]
+    context: collections.abc.Sequence[ActorContextParameter] | None = None
+    dependencies: collections.abc.Sequence[ActorDependencyParameter] | None = None
+
+
+@dataclasses.dataclass
+class ActorRuntime:
+    executable: collections.abc.Callable
+    kind: ActorExecutionKind
+
+
+@dataclasses.dataclass
+class ActorRegistryEntry:
+    id: ActorIdType
+    semantic_kind: ActorSemanticKind
+    parameters: ActorParameters
+    return_annotation: typing.Any
+    runtime: ActorRuntime
 
 
 class ActorRegistry:
@@ -27,7 +77,7 @@ class ActorRegistry:
 
     def add(
         self,
-        actor: contracts.ActorContract
+        actor: zodchy.codex.cqea.Actor
     ):
         if actor_entry := self._actor_entry(actor):
             self._register_entry(actor_entry)
@@ -35,7 +85,7 @@ class ActorRegistry:
     def get(
         self,
         contract: type
-    ) -> collections.abc.Generator[contracts.ActorRegistryEntry, None, None]:
+    ) -> collections.abc.Generator[ActorRegistryEntry, None, None]:
         chain = contract.__mro__ if hasattr(contract, '__mro__') else (contract,)
         for contract in chain:
             for entry_id in self._contract_actor_map.get(contract) or ():
@@ -44,24 +94,24 @@ class ActorRegistry:
     def get_by_id(
         self,
         actor_id: int
-    ) -> contracts.ActorRegistryEntry | None:
+    ) -> ActorRegistryEntry | None:
         return self._actors.get(actor_id)
 
     def __iter__(self):
         for entry in self._actors.values():
             yield entry
 
-    def __add__(self, other: contracts.ActorRegistry):
+    def __add__(self, other: typing.Self):
         for entry in other:
             self._register_entry(entry)
         return self
 
     def _register_entry(
         self,
-        entry: contracts.ActorRegistryEntry
+        entry: ActorRegistryEntry
     ):
         self._actors[entry.id] = entry
-        if entry.semantic_kind == contracts.ActorSemanticKind.CONTEXT:
+        if entry.semantic_kind == ActorSemanticKind.CONTEXT:
             self._contract_actor_map[entry.return_annotation].append(entry.id)
         else:
             for parameter in itertools.chain(entry.parameters.domain, entry.parameters.context or ()):
@@ -69,20 +119,20 @@ class ActorRegistry:
 
     def _actor_entry(
         self,
-        actor: contracts.ActorContract
-    ) -> contracts.ActorRegistryEntry | None:
+        actor: zodchy.codex.cqea.Actor
+    ) -> ActorRegistryEntry | None:
         semantic_kind = self._derive_semantic_kind(actor=actor)
         if semantic_kind is None:
             return
         signature = inspect.signature(actor)
         parameters = self._derive_parameters(signature)
         return_annotation = signature.return_annotation
-        return contracts.ActorRegistryEntry(
+        return ActorRegistryEntry(
             id=id(actor),
             parameters=parameters,
             return_annotation=return_annotation,
             semantic_kind=semantic_kind,
-            runtime=contracts.ActorRuntime(
+            runtime=ActorRuntime(
                 executable=self._derive_executable(actor),
                 kind=self._derive_execution_kind(actor)
             )
@@ -90,16 +140,16 @@ class ActorRegistry:
 
     @staticmethod
     def _derive_semantic_kind(
-        actor: contracts.ActorContract,
-    ) -> contracts.ActorSemanticKind | None:
+        actor: zodchy.codex.cqea.Actor,
+    ) -> ActorSemanticKind | None:
         _map = {
-            'io': contracts.ActorSemanticKind.IO,
-            'reader': contracts.ActorSemanticKind.IO,
-            'writer': contracts.ActorSemanticKind.IO,
-            'auditor': contracts.ActorSemanticKind.AUDIT,
-            'usecase': contracts.ActorSemanticKind.USECASE,
-            'context': contracts.ActorSemanticKind.CONTEXT,
-            'response': contracts.ActorSemanticKind.RESPONSE,
+            'io': ActorSemanticKind.IO,
+            'reader': ActorSemanticKind.IO,
+            'writer': ActorSemanticKind.IO,
+            'auditor': ActorSemanticKind.AUDIT,
+            'usecase': ActorSemanticKind.USECASE,
+            'context': ActorSemanticKind.CONTEXT,
+            'response': ActorSemanticKind.RESPONSE,
             'skip': None
         }
         if '__semantic__' not in actor.__dict__:
@@ -113,17 +163,17 @@ class ActorRegistry:
 
     @staticmethod
     def _derive_execution_kind(
-        actor: contracts.ActorContract
-    ) -> contracts.ActorExecutionKind:
-        execution_type = contracts.ActorExecutionKind.SYNC
+        actor: zodchy.codex.cqea.Actor
+    ) -> ActorExecutionKind:
+        execution_type = ActorExecutionKind.SYNC
         if inspect.iscoroutinefunction(actor):
-            execution_type = contracts.ActorExecutionKind.ASYNC
+            execution_type = ActorExecutionKind.ASYNC
 
         return execution_type
 
     @staticmethod
     def _derive_executable(
-        actor: contracts.ActorContract
+        actor: zodchy.codex.cqea.Actor
     ):
         if inspect.isfunction(actor):
             return actor
@@ -133,51 +183,51 @@ class ActorRegistry:
     def _derive_parameters(
         self,
         signature: inspect.Signature
-    ) -> contracts.ActorParameters:
+    ) -> ActorParameters:
         domain = []
         dependencies = []
         context = []
         for parameter in signature.parameters.values():
             actor_parameter = self._derive_parameter(parameter)
-            if isinstance(actor_parameter, contracts.ActorDomainParameter):
+            if isinstance(actor_parameter, ActorDomainParameter):
                 domain.append(actor_parameter)
-            if isinstance(actor_parameter, contracts.ActorContextParameter):
+            if isinstance(actor_parameter, ActorContextParameter):
                 context.append(actor_parameter)
-            elif isinstance(actor_parameter, contracts.ActorDependencyParameter):
+            elif isinstance(actor_parameter, ActorDependencyParameter):
                 dependencies.append(actor_parameter)
         if not domain:
             raise exceptions.CannotDefineActorParameter(signature)
-        return contracts.ActorParameters(
+        return ActorParameters(
             domain=domain,
             context=context or None,
             dependencies=dependencies or None
         )
 
     @staticmethod
-    def _derive_parameter(parameter: inspect.Parameter) -> contracts.ActorParameter:
+    def _derive_parameter(parameter: inspect.Parameter) -> ActorParameter:
         _types_chain = _evoke_types_chain(parameter.annotation)
-        if contract := _search_contract(_types_chain, contracts.Task, contracts.Event):
-            return contracts.ActorDomainParameter(
+        if contract := _search_contract(_types_chain, zodchy.codex.cqea.Task, zodchy.codex.cqea.Event):
+            return ActorDomainParameter(
                 name=parameter.name,
                 contract=contract
             )
-        elif contract := _search_contract(_types_chain, contracts.Context):
-            return contracts.ActorContextParameter(
+        elif contract := _search_contract(_types_chain, zodchy.codex.cqea.Context):
+            return ActorContextParameter(
                 name=parameter.name,
                 contract=contract
             )
         else:
-            return contracts.ActorDependencyParameter(
+            return ActorDependencyParameter(
                 name=parameter.name,
                 contract=parameter.annotation,
-                default=contracts.NoValueType if parameter.default is inspect.Parameter.empty else parameter.default
+                default=zodchy.types.Empty if parameter.default is inspect.Parameter.empty else parameter.default
             )
 
 
 def _evoke_types_chain(annotation):
     _origin = typing.get_origin(annotation)
     if not _origin:
-        return contracts.NoValueType if annotation is inspect.Parameter.empty else annotation
+        return zodchy.types.Empty if annotation is inspect.Parameter.empty else annotation
     else:
         args = typing.get_args(annotation)
         chain = [_origin]
@@ -210,3 +260,16 @@ def _search_contract(
                 for needle in needles
             ):
                 return element
+
+
+def register_module(
+    registry: ActorRegistry,
+    module: ModuleType
+) -> ActorRegistry:
+    for e in inspect.getmembers(module):
+        entity = e[1]
+        if inspect.ismodule(entity) and module.__name__ in entity.__name__:
+            register_module(registry, entity)
+        elif inspect.isfunction(entity) and not entity.__name__.startswith('_'):
+            registry.add(entity)
+    return registry

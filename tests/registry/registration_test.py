@@ -1,7 +1,6 @@
 import pytest
 
-from pancho.definition.contracts import ActorSemanticKind
-from pancho.implementation.registry import ActorRegistry, register_module
+from pancho.implementation.registry import ActorRegistry, ActorSemanticKind, register_module
 from .definitions.actors import decorated, convention
 
 

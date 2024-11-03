@@ -1,5 +1,8 @@
 import typing
 import functools
+import traceback
+
+from ..definition.contracts import Error
 
 
 def semantic(kind: typing.Literal['usecase', 'io', 'auditor', 'context', 'response', 'reader', 'writer']):
@@ -23,3 +26,11 @@ def skip(func):
         return await func(*args, **kwargs)
 
     return wrapper
+
+
+def default_exception(e: Exception, add_traceback: bool = False) -> Error:
+    return Error(
+        status_code=500,
+        message=str(e),
+        details=''.join(traceback.format_tb(e.__traceback__)) if add_traceback else None
+    )

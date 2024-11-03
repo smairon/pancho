@@ -1,5 +1,9 @@
 import abc
-from . import contracts
+import typing
+
+import zodchy
+
+ActorIdType: typing.TypeAlias = int
 
 
 class PanchoException(Exception):
@@ -7,7 +11,7 @@ class PanchoException(Exception):
 
 
 class CannotRegisterActor(PanchoException):
-    def __init__(self, actor: contracts.ActorContract):
+    def __init__(self, actor: zodchy.codex.cqea.Actor):
         self._actor = actor
         super().__init__(self.message())
 
@@ -17,7 +21,7 @@ class CannotRegisterActor(PanchoException):
 
 
 class CannotDeriveActorPurpose(PanchoException):
-    def __init__(self, actor: contracts.ActorContract):
+    def __init__(self, actor: zodchy.codex.cqea.Actor):
         self._actor = actor
         super().__init__(self.message())
 
@@ -26,7 +30,7 @@ class CannotDeriveActorPurpose(PanchoException):
 
 
 class CannotDefineActorParameter(PanchoException):
-    def __init__(self, actor: contracts.ActorContract):
+    def __init__(self, actor: zodchy.codex.cqea.Actor):
         self._actor = actor
         super().__init__(self.message())
 
@@ -35,7 +39,7 @@ class CannotDefineActorParameter(PanchoException):
 
 
 class CannotResolveActorParameter(PanchoException):
-    def __init__(self, actor_id: contracts.ActorIdType, param_name: str):
+    def __init__(self, actor_id: ActorIdType, param_name: str):
         self._actor_id = actor_id
         self._param_name = param_name
         super().__init__(self.message())
@@ -45,7 +49,7 @@ class CannotResolveActorParameter(PanchoException):
 
 
 class CannotProcessActorResult(PanchoException):
-    def __init__(self, actor_id: contracts.ActorIdType):
+    def __init__(self, actor_id: ActorIdType):
         self._actor_id = actor_id
         super().__init__(self.message())
 

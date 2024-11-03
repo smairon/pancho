@@ -3,58 +3,57 @@ import dataclasses
 import typing
 import heapq
 import itertools
-from os import write
+import zodchy
 
-import zorge
-
-from ..definition import contracts, exceptions
+from ..definition import exceptions
+from . import registry
 
 
 @dataclasses.dataclass
 class Job:
-    actor_entry: contracts.ActorRegistryEntry
-    parameters: collections.abc.Mapping[str, contracts.Message]
+    actor_entry: registry.ActorRegistryEntry
+    parameters: collections.abc.Mapping[str, zodchy.codex.cqea.Message]
 
 
 class Loop:
     _SEMANTIC_PRIORITY = {
-        contracts.ActorSemanticKind.CONTEXT: 0,
-        contracts.ActorSemanticKind.AUDIT: 1,
-        contracts.ActorSemanticKind.USECASE: 2,
-        contracts.ActorSemanticKind.IO: 3,
-        contracts.ActorSemanticKind.RESPONSE: 9
+        registry.ActorSemanticKind.CONTEXT: 0,
+        registry.ActorSemanticKind.AUDIT: 1,
+        registry.ActorSemanticKind.USECASE: 2,
+        registry.ActorSemanticKind.IO: 3,
+        registry.ActorSemanticKind.RESPONSE: 9
     }
 
     def __init__(
         self,
-        actor_registry: contracts.ActorRegistry
+        actor_registry: registry.ActorRegistry
     ):
         self._queue = []
         self._actor_registry = actor_registry
         self._stream = {}
 
-    def register(self, message: contracts.Message):
+    def register(self, message: zodchy.codex.cqea.Message):
         if (key := message.__class__.__name__) not in self._stream:
             self._stream[key] = message
             self._register_job(message)
 
-    def _register_job(self, message: contracts.Message):
-        is_context = isinstance(message, contracts.Context)
+    def _register_job(self, message: zodchy.codex.cqea.Message):
+        is_context = isinstance(message, zodchy.codex.cqea.Context)
         for actor_entry in self._actor_registry.get(message.__class__):
-            if is_context and actor_entry.semantic_kind == contracts.ActorSemanticKind.CONTEXT:
+            if is_context and actor_entry.semantic_kind == registry.ActorSemanticKind.CONTEXT:
                 continue
             for context_parameter in actor_entry.parameters.context or ():
                 self._register_context_job(context_parameter.contract)
             self._enqueue_job(actor_entry)
 
-    def _register_context_job(self, contract: type[contracts.Context]):
+    def _register_context_job(self, contract: type[zodchy.codex.cqea.Context]):
         if contract.__name__ in self._stream:
             return
         for actor_entry in self._actor_registry.get(contract):
-            if actor_entry.semantic_kind == contracts.ActorSemanticKind.CONTEXT:
+            if actor_entry.semantic_kind == registry.ActorSemanticKind.CONTEXT:
                 self._enqueue_job(actor_entry)
 
-    def _enqueue_job(self, actor_entry: contracts.ActorRegistryEntry):
+    def _enqueue_job(self, actor_entry: registry.ActorRegistryEntry):
         if (parameters := self._build_parameters(actor_entry)) is not None:
             heapq.heappush(
                 self._queue,
@@ -69,7 +68,7 @@ class Loop:
 
     def _build_parameters(
         self,
-        actor_entry: contracts.ActorRegistryEntry,
+        actor_entry: registry.ActorRegistryEntry,
     ):
         parameters = {}
         for p in itertools.chain(actor_entry.parameters.domain, actor_entry.parameters.context or ()):
@@ -86,22 +85,22 @@ class Loop:
 class CQProcessor:
     def __init__(
         self,
-        actor_registry: contracts.ActorRegistry,
-        di_resolver: contracts.DIResolver | None = None
+        actor_registry: registry.ActorRegistry,
+        di_resolver: zodchy.codex.di.DIResolverContract | None = None
     ):
         self._actor_registry = actor_registry
         self._di_resolver = di_resolver
 
     async def __call__(
         self,
-        message: contracts.Message
-    ) -> typing.AsyncGenerator[contracts.Message, None]:
+        message: zodchy.codex.cqea.Message
+    ) -> typing.AsyncGenerator[zodchy.codex.cqea.Message, None]:
         loop = Loop(self._actor_registry)
         loop.register(message)
         async for job in loop:
             for message in await self._run_job(job):
                 yield message
-                if isinstance(message, contracts.Error):
+                if isinstance(message, zodchy.codex.cqea.Error):
                     return
                 loop.register(message)
 
@@ -110,14 +109,14 @@ class CQProcessor:
             **job.parameters,
             **await self._compile_dependency_parameters(job)
         }
-        if job.actor_entry.runtime.kind == contracts.ActorExecutionKind.ASYNC:
+        if job.actor_entry.runtime.kind == registry.ActorExecutionKind.ASYNC:
             result = await job.actor_entry.runtime.executable(**params)
         else:
             result = job.actor_entry.runtime.executable(**params)
         if not isinstance(result, collections.abc.Iterable):
             if result is None:
                 result = ()
-            elif isinstance(result, contracts.Message):
+            elif isinstance(result, zodchy.codex.cqea.Message):
                 result = (result,)
             else:
                 raise ValueError(
@@ -132,12 +131,10 @@ class CQProcessor:
                 if self._di_resolver:
                     params[dependency_parameter.name] = await self._di_resolver.resolve(dependency_parameter.contract)
                 else:
-                    if dependency_parameter.default is contracts.NoValueType:
+                    if dependency_parameter.default is zodchy.types.Empty:
                         raise exceptions.CannotResolveActorParameter(
                             actor_id=job.actor_entry.id,
                             param_name=dependency_parameter.name
                         )
                     params[dependency_parameter.name] = dependency_parameter.default
         return params
-
-

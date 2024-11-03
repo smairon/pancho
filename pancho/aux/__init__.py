@@ -1,1 +1,1 @@
-from .decorators import semantic
+from . import wrappers
