@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pancho"
-version = "1.3.0"
+version = "1.3.3"
 description = "Commands and queries processor"
 readme = "README.md"
 repository = "https://github.com/smairon/pancho"
