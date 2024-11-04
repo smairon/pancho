@@ -28,9 +28,19 @@ def skip(func):
     return wrapper
 
 
-def default_exception(e: Exception, add_traceback: bool = False) -> Error:
+def default_exception(
+    e: Exception,
+    message: str = "Something goes wrong",
+    include_exception_message: bool = False,
+    include_traceback: bool = False
+) -> Error:
+    details = {}
+    if include_exception_message:
+        details["message"] = str(e)
+    if include_traceback:
+        details["trace"] = traceback.format_exception(e.__traceback__)
     return Error(
         status_code=500,
-        message=str(e),
-        details=''.join(traceback.format_tb(e.__traceback__)) if add_traceback else None
+        message=message,
+        details=details or None
     )
