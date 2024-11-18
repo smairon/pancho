@@ -1,4 +1,4 @@
-from pancho.aux import semantic
+from pancho.aux.wrappers import semantic
 from ....definitions import messages, context
 
 

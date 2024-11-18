@@ -9,8 +9,9 @@ from ..definition import exceptions
 from . import registry
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(order=True)
 class Job:
+    priority: int
     actor_entry: registry.ActorRegistryEntry
     parameters: collections.abc.Mapping[str, zodchy.codex.cqea.Message]
 
@@ -31,6 +32,7 @@ class Loop:
         self._queue = []
         self._actor_registry = actor_registry
         self._stream = {}
+        self._jobs_sequence = 0
 
     def register(self, message: zodchy.codex.cqea.Message):
         if (key := message.__class__.__name__) not in self._stream:
@@ -55,11 +57,13 @@ class Loop:
 
     def _enqueue_job(self, actor_entry: registry.ActorRegistryEntry):
         if (parameters := self._build_parameters(actor_entry)) is not None:
+            self._jobs_sequence += 1
             heapq.heappush(
                 self._queue,
                 (
                     self._SEMANTIC_PRIORITY[actor_entry.semantic_kind],
                     Job(
+                        priority=self._jobs_sequence, # just for order jobs with the same semantic priority
                         actor_entry=actor_entry,
                         parameters=parameters
                     )
