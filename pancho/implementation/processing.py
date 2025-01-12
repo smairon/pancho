@@ -154,15 +154,16 @@ class CQProcessor:
             result = await job.actor_entry.runtime.executable(**params)
         else:
             result = job.actor_entry.runtime.executable(**params)
-        if not isinstance(result, collections.abc.Iterable):
-            if result is None:
-                result = ()
-            elif isinstance(result, zodchy.codex.cqea.Message):
-                result = (result,)
-            else:
-                raise ValueError(
-                    f"Unexpected result type for actor {job.actor_entry.runtime.executable.__name__}: {type(result)}"
-                )
+
+        if result is None:
+            result =()
+        elif isinstance(result, zodchy.codex.cqea.Message):
+            result = (result,)
+        elif not isinstance(result, collections.abc.Iterable):
+            raise ValueError(
+                f"Unexpected result type for actor {job.actor_entry.runtime.executable.__name__}: {type(result)}"
+            )
+
         return result
 
     async def _compile_dependency_parameters(self, job: Job):
