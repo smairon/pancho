@@ -2,7 +2,8 @@ from .implementation import (
     TaskExecutor,
     CQProcessor,
     ActorRegistry,
-    register_module
+    register_module,
+    ExceptionTransformer
 )
 from .definition.contracts import (
     Error,

@@ -15,11 +15,11 @@ class TaskExecutor:
         self,
         di_container: zorge.Container,
         actor_registry: registry.ActorRegistry,
-        error_wrapper: collections.abc.Callable[[Exception], zodchy.codex.cqea.Error] | None = None
+        exception_transformer: collections.abc.Callable[[Exception], zodchy.codex.cqea.Error] | None = None
     ):
         self._di_container = di_container
         self._actor_registry = actor_registry
-        self._error_wrapper = error_wrapper
+        self._exception_transformer = exception_transformer
 
     async def run(
         self,
@@ -38,8 +38,8 @@ class TaskExecutor:
         except ExpectedErrorOccurred:
             pass  # supress this artificial error
         except Exception as e:
-            if self._error_wrapper:
-                stream.append(self._error_wrapper(e))
+            if self._exception_transformer:
+                stream.append(self._exception_transformer(e))
             else:
                 raise e
         return stream
